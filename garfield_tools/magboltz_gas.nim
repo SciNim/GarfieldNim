@@ -191,7 +191,8 @@ proc main(gases: seq[string],
   let gasMixture = initGasMixture(temperature, pressure, 0.0.V•cm⁻¹,
                                   gases, percs)
 
-  let outfile = generateGasFile(gasMixture, outdir, eMin, eMax, nE = 100, numCollisions = 100)
+  let outfile = generateGasFile(gasMixture, outdir, eMin, eMax,
+                                nE = nE, numCollisions = numCollisions)
   echo "Wrote gas file: ", outdir / outfile
 
 when isMainModule:
