@@ -1,0 +1,56 @@
+* GarfieldNim - A Nim wrapper for Garfield++
+
+An (incomplete) Nim wrapper for the [[https://garfieldpp.web.cern.ch/garfieldpp/][Garfield++]] [[https://gitlab.cern.ch/garfield/garfieldpp][library]].
+
+From the Garfield++ website:
+#+begin_quote
+Garfield++ is a toolkit for the detailed simulation of particle
+detectors based on ionisation measurement in gases and
+semiconductors. The main area of application is currently in
+micropattern gaseous detectors. Garfield++ shares functionality with
+the Garfield program. The main differences are the more up-to-date
+treatment of electron transport, the possibility to simulate silicon
+sensors, and the user interface, which is based on ROOT.
+#+end_quote
+
+** Requirements
+
+This library requires [[https://root.cern][CERN's ROOT]] and Garfield++ in your PATH (having
+sourced ~thisRoot.sh~ and ~setupGarfield.sh~ respectively).
+
+You will get a compile time error if either cannot be found.
+
+** Compatibility with Nim
+
+Both ROOT and Nim define a ~TFrame~ data type. This leads to a clash
+when compiling code. For that reason the files that include ROOT
+headers that use this type must be modified.
+
+We need to introduce a small hack in our local Garfield++ source files
+in order to use this Nim library.
+
+For example the header of ~AvalancheMC.hh~ must be changed to:
+#+begin_src c++
+#ifndef G_AVALANCHE_MC_H
+#define G_AVALANCHE_MC_H
+
+#include <array>
+#include <string>
+#include <vector>
+
+#define TFrame TFrameROOT
+
+#include "FundamentalConstants.hh"
+#include "GarfieldConstants.hh"
+#include "Sensor.hh"
+#include "ViewDrift.hh"
+
+#undef TFrame
+#+end_src
+where we redefine the ~TFrame~ locally.
+
+List of currently affected headers:
+- ~AvalancheMC.hh~
+- ~AvalancheMicroscopic.hh~  
+
+
