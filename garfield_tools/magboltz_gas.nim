@@ -196,7 +196,7 @@ proc main(gases: seq[string],
   echo "Wrote gas file: ", outdir / outfile
 
 when isMainModule:
-  import ./cligenParseUnits
+  import unchained / cligenParseUnits
 
   import cligen
   dispatch(main, help = {
