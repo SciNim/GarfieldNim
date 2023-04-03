@@ -1,4 +1,4 @@
-import std / [strutils, os, strformat, sequtils]
+import std / [strutils, os, strformat, sequtils, math, options, strscans]
 import pkg / unchained
 import ./garfield
 
@@ -71,14 +71,14 @@ proc setupMediumMagboltz*(gas: GasMixture): MediumMagboltz =
   result.setPressure(gas.pressure.float)
   result.initialise(true)
 
-proc genGasFileName*(gas: GasMixture): string =
+proc genGasFileName*(gas: GasMixture, eMin, eMax: float, nE, numCollisions: int): string =
   ## XXX: better would be to force shorthands of gas names!
   for i, g in gas.gases:
-    let perc = g.perc
-    #result.add &"{g.name}_{(perc * 100.0).round.int}"
+    let perc = (g.perc * 100.0).round.int
+    result.add &"{g.name}_{perc}"
     if i < gas.gases.high:
       result.add "_"
-  result.add ".gas"
+  result.add &"_T_{gas.temperature.float}_P_{gas.pressure.float}_eMin_{eMin:.2f}_eMax_{eMax:.2f}_nE_{nE}_ncoll_{numCollisions}.gas"
 
 proc generateGasFile*(gas: GasMixture,
                       gasFileDir: string,
@@ -100,9 +100,27 @@ proc generateGasFile*(gas: GasMixture,
   # Run Magboltz to generate the gas table.
   mbGas.generateGasTable(numCollisions)
   # Save the table
-  result = genGasFileName(gas)
+  result = genGasFileName(gas, eMin, eMax, nE, numCollisions)
   discard existsOrCreateDir(gasFileDir)
   mbGas.writeGasFile(gasFileDir / result)
+
+proc findMatchingGasFile(gas: GasMixture, gasFileDir: string): Option[string] =
+  ## Attempts to locate a gas file for the input gas that matches the
+  ## mixture. This means finding a file with same temperature, pressure
+  ## and electric field.
+  proc isClose(a, b: float): bool = abs(a - b) < 1e-3
+  for file in walkFiles(gasFileDir & "*.gas"):
+    let name = file.extractFilename()
+    let (match, g1, p1, g2, p2, T, P, eMin, eMax, nE, nc) = name.scanTuple("$w_$f_$w_$f_T_$f_P_$f_eMin_$f_eMax_$f_nE_$i_ncoll_$i.gas")
+    if match and
+       g1 == gas.gases[0].name          and
+       p1.isClose(gas.gases[0].perc)    and
+       g2 == gas.gases[1].name          and
+       p2.isClose(gas.gases[0].perc)    and
+       T.isClose(gas.temperature.float) and
+       P.isClose(gas.pressure.float)    and
+       gas.eField.float in eMin .. eMax:
+      return some(name)
 
 proc readOrGenGasFile*(gas: GasMixture, gasFile, gasFileDir: string): string =
   ## Attempts to read a given gas file (or from the resources directory)
@@ -110,9 +128,9 @@ proc readOrGenGasFile*(gas: GasMixture, gasFile, gasFileDir: string): string =
   if gasFile.len > 0:
     result = gasFile
   else:
-    let gasFileName = genGasFileName(gas)
-    if existsFile(gasFileDir / gasFileName):
-      result = gasFileDir / gasFileName
+    let gasFileOpt = findMatchingGasFile(gas, gasFileDir)
+    if gasFileOpt.isSome:
+      result = gasFileDir / gasFileOpt.get
     else:
       # need to generate a gas file using Garfield++
       result = gasFileDir / generateGasFile(gas, gasFileDir)
